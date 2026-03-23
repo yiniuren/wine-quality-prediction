@@ -73,12 +73,11 @@ Most models treat `quality` as a **class label** (multi-class classification). *
 | **XGBoost (classifier)** | Gradient boosted trees with regularization | Often very accurate on structured data; tune depth/learning rate modestly |
 | **CatBoost (classifier)** | Gradient boosting with ordered boosting / categorical handling | Works well with minimal tuning; `is_red` fits naturally |
 
-### 2.5 Probabilistic / Bayesian Models
+### 2.5 Probabilistic Models
 
 | Model | Key Idea | Why Try It |
 |-------|----------|------------|
 | **Naive Bayes (Gaussian)** | Class-conditional Gaussian features, independence assumption | Fast baseline; can work when linear separability is rough |
-| **Bayesian logistic regression** | Priors on coefficients | Regularization with an explicit probabilistic story |
 
 ### 2.6 Ordinal-Aware Models
 
@@ -112,22 +111,23 @@ wine-quality-prediction/
 │   └── processed/
 │       ├── train.csv               # Training data (provided)
 │       └── test.csv                # Test data (to be provided)
-├── notebooks/
-│   ├── 01_eda.ipynb                # Exploratory data analysis
-│   ├── 02_preprocessing.ipynb      # Feature engineering & preprocessing
-│   ├── 03_model_training.ipynb     # Model fitting & tuning
-│   ├── 04_model_comparison.ipynb   # Side-by-side model evaluation
-│   └── 05_final_prediction.ipynb   # Generate test set predictions
 ├── src/
-│   ├── preprocess.R                # Preprocessing functions
-│   ├── train_models.R              # Model training utilities
-│   ├── evaluate.R                  # Evaluation metrics & helpers
-│   └── predict.R                   # Generate final predictions
+│   ├── install_packages.R          # One-time R dependency install
+│   ├── helpers.R                   # Preprocessing, CV folds, metrics
+│   └── models.R                    # Model train/predict functions + registry
+├── scripts/
+│   ├── 01_eda.R                    # Exploratory data analysis (extra plots)
+│   ├── 02_cv.R                     # Cross-validation
+│   ├── 03_full_train.R             # Full training set fit & metrics
+│   ├── 04_plots.R                  # Model comparison figure
+│   └── 05_predict_test.R           # Test set predictions (when test.csv exists)
 ├── outputs/
 │   ├── distributions/              # EDA plots & tables
+│   ├── eda/                        # Correlation heatmap, boxplots, etc.
 │   ├── models/                     # Saved model objects
 │   └── results/                    # Comparison tables, final predictions
-├── analyze_distributions.R         # Existing EDA script
+├── analyze_distributions.R         # Distribution plots for all variables
+├── Makefile
 ├── PROJECT_PLAN.md                 # ← This file
 ├── AI_USAGE.md                     # AI usage documentation
 └── .gitignore
