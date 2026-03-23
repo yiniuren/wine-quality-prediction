@@ -137,7 +137,7 @@ wine-quality-prediction/
 
 ## 4. Workflow (aligned with the reduced model list)
 
-This is a shorter path than a large benchmark: a few clear steps from EDA to a single “best” model.
+A compact path from EDA through model fitting to **side-by-side comparison** (no need to declare a single best model yet).
 
 ### Step 1 — EDA (mostly done)
 
@@ -156,31 +156,43 @@ This is a shorter path than a large benchmark: a few clear steps from EDA to a s
 
 Work through the families in §2 in a sensible order: **OLS** and **multinomial logistic** first, then **Ridge/Lasso/Elastic Net** logistic, **ordinal logistic**, **Naive Bayes**, **KNN** (tune `k`), **Random Forest / XGBoost / CatBoost** (small grid or defaults + a bit of tuning), then **regression-then-round** variants (**Ridge/Lasso**, **RF reg**, **XGBoost reg**) with rounding for discrete metrics.
 
-- Keep a **single spreadsheet or table**: model name, key settings, CV accuracy (or primary metric), and optionally weighted F1 / QWK.
+- Keep a **single table**: model name, key settings, **CV accuracy**, **CV RMSE** (see §5 for definitions).
 
-### Step 4 — Choose the best model and finalize
+### Step 4 — Full training set metrics and comparison figures
 
-- Pick the **best** model by your chosen **primary metric** (see below), using CV—not a single random split.
-- **Retrain** on the full training set with those settings.
-- Run the **same preprocessing** on `test.csv` and save predictions.
+- **Fit each model** on the **entire** training set (same hyperparameters you used in CV).
+- On that same full training set, compute **training-set accuracy** and **training-set RMSE** for each model (these are in-sample / optimistic; they complement CV, not replace it).
+- **Do not** need to pick a “winner” yet—goal is a clear visual comparison across models.
+
+**Comparison plot(s):** Build figure(s) so each model can be compared on **accuracy** and **RMSE** in both settings:
+
+| Setting | What to plot |
+|--------|----------------|
+| **Cross-validation** | Per model: CV accuracy (e.g. mean across folds) and CV RMSE (mean across folds). |
+| **Full training set** | Per model: accuracy and RMSE computed on the full training data after refitting on all rows. |
+
+Use a layout that keeps both metrics visible—for example **two panels** (one for CV, one for full training), each with **paired bars or points** per model: one series for **accuracy**, one for **RMSE**. Because accuracy (often 0–1 or 0–100%) and RMSE (error scale) live on different scales, use **dual y-axes** *or* **normalize** RMSE for display *or* **two separate subplots per panel** (accuracy vs. RMSE) with models on the x-axis—choose whichever is clearest for your report. The point is to **see every model’s accuracy and RMSE together** for CV and again for the full training run.
+
+When you later have `test.csv`, apply the same preprocessing and save predictions; test metrics can follow the same accuracy + RMSE convention if labels are available.
 
 ---
 
-## 5. Evaluation metrics (keep it small)
+## 5. Evaluation metrics (accuracy and RMSE only)
 
-| Metric | Role |
-|--------|------|
-| **Accuracy** | Easy to report; can mislead with imbalance. |
-| **Weighted F1** | Balances precision/recall with class frequency. |
-| **Macro F1** | Stress-tests performance on rare classes (3, 9). |
-| **Quadratic weighted kappa (QWK)** | Penalizes “far” ordinal mistakes more than “near” ones—good match for `quality`. |
+Use **only** these two metrics everywhere (CV folds, full training set, and test if applicable).
 
-Pick **one primary metric** (e.g. **QWK** or **weighted F1**) for model selection; report accuracy as secondary if desired.
+| Metric | Definition (for this project) |
+|--------|--------------------------------|
+| **Accuracy** | Fraction of observations where predicted `quality` equals true `quality`. For regressors and “regression → round,” use **rounded** predictions (clipped to valid scores) when computing accuracy. |
+| **RMSE** | \(\sqrt{\frac{1}{n}\sum_i (y_i - \hat{y}_i)^2}\) where \(y_i\) is true `quality` (numeric). Use **continuous** predictions \(\hat{y}_i\) for OLS and regression models. For **classifiers** (predicted integer class), \(\hat{y}_i\) is that predicted class treated as a number—so RMSE still measures typical error magnitude on the 0–10 quality scale. |
+
+**CV:** Report **mean** accuracy and **mean** RMSE across folds (and optionally fold-wise SD in a table if useful).  
+**Full training set:** Report a single accuracy and a single RMSE per model after refitting on all training rows.
 
 ---
 
 ## 6. Reminders
 
-- **Imbalance:** Most wines are 5–6; stratified CV and macro F1 / QWK help you not overfit to the majority.
+- **Imbalance:** Most wines are 5–6; accuracy alone can look high even when rare classes are weak—still useful for comparing models on the same scale.
 - **Correlated predictors:** Regularized logistic and tree methods handle this better than plain OLS for stability.
 - **Reproducibility:** Fix random seeds; save the exact preprocessing + model for test-time use.
