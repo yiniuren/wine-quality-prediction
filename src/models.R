@@ -169,8 +169,12 @@ train_and_predict_catboost_class <- function(X_train, y_train, X_test) {
 # 10. Naive Bayes (Gaussian)
 # ---------------------------------------------------------------------------
 train_and_predict_naive_bayes <- function(X_train, y_train, X_test) {
-  fit <- naiveBayes(x = as.data.frame(X_train), y = factor(y_train))
-  preds <- predict(fit, newdata = as.data.frame(X_test))
+  # Gaussian Naive Bayes is a poor fit for binary is_red; use chemistry-only features.
+  nb_cols <- setdiff(colnames(X_train), "is_red")
+  X_tr <- X_train[, nb_cols, drop = FALSE]
+  X_te <- X_test[, nb_cols, drop = FALSE]
+  fit <- naiveBayes(x = as.data.frame(X_tr), y = factor(y_train))
+  preds <- predict(fit, newdata = as.data.frame(X_te))
   list(predictions = as.integer(as.character(preds)), model = fit)
 }
 
