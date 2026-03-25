@@ -70,8 +70,6 @@ Most models treat `quality` as a **class label** (multi-class classification). *
 | Model | Key Idea | Why Try It |
 |-------|----------|------------|
 | **Random Forest (classifier)** | Many de-correlated trees via bagging + random splits | Strong default for tabular data; handles nonlinearity and interactions |
-| **XGBoost (classifier)** | Gradient boosted trees with regularization | Often very accurate on structured data; tune depth/learning rate modestly |
-| **CatBoost (classifier)** | Gradient boosting with ordered boosting / categorical handling | Works well with minimal tuning; `is_red` fits naturally |
 
 ### 2.5 Probabilistic Models
 
@@ -79,15 +77,7 @@ Most models treat `quality` as a **class label** (multi-class classification). *
 |-------|----------|------------|
 | **Naive Bayes (Gaussian)** | Class-conditional Gaussian features, independence assumption | Fast baseline; can work when linear separability is rough |
 
-### 2.6 Ordinal-Aware Models
-
-`quality` is **ordinal** (3 < 4 < … < 9). One model that respects ordering:
-
-| Model | Key Idea | Why Try It |
-|-------|----------|------------|
-| **Ordinal logistic regression (proportional odds)** | One coefficient vector + ordered cutpoints between classes | Treats quality as ordered categories instead of unrelated labels |
-
-### 2.7 Regression-then-Round
+### 2.6 Regression-then-Round
 
 Treat `quality` as continuous, predict with regression, then **round** to the nearest integer (clip to valid range if needed) for discrete metrics.
 
@@ -95,7 +85,6 @@ Treat `quality` as continuous, predict with regression, then **round** to the ne
 |-------|----------|------------|
 | **Ridge / Lasso regression → round** | Penalized linear regression, then discretize | Same “numeric quality” idea as OLS but with multicollinearity control |
 | **Random Forest regressor → round** | RF predicts a continuous score, then round | Compare tree ensemble as regressor vs. as classifier |
-| **XGBoost regressor → round** | Boosted trees for continuous outcome, then round | Same comparison for boosting |
 
 *(OLS in §2.1 is the unpenalized linear regression baseline; use rounding when you want classification-style evaluation.)*
 
@@ -117,15 +106,13 @@ wine-quality-prediction/
 │   └── models.R                    # Model train/predict functions + registry
 ├── scripts/
 │   ├── 01_eda.R                    # Exploratory data analysis (extra plots)
-│   ├── 02_cv.R                     # Cross-validation
-│   ├── 03_full_train.R             # Full training set fit & metrics
-│   ├── 04_plots.R                  # Model comparison figure
+│   ├── 02_cv.R                     # Cross-validation + scale_params.rds
+│   ├── 04_plots.R                  # Model comparison figure (CV only)
 │   └── 05_predict_test.R           # Test set predictions (when test.csv exists)
 ├── outputs/
-│   ├── distributions/              # EDA plots & tables
-│   ├── eda/                        # Correlation heatmap, boxplots, etc.
-│   ├── models/                     # Saved model objects
-│   └── results/                    # Comparison tables, final predictions
+│   ├── eda/                        # Distribution plots, heatmap, boxplots, etc.
+│   ├── models/                     # scale_params.rds for test-time preprocessing
+│   └── results/                    # cv_results.csv, comparison figure, test_predictions.csv
 ├── analyze_distributions.R         # Distribution plots for all variables
 ├── Makefile
 ├── PROJECT_PLAN.md                 # ← This file
@@ -141,7 +128,7 @@ A compact path from EDA through model fitting to **side-by-side comparison** (no
 
 ### Step 1 — EDA (mostly done)
 
-- **Already in place:** distribution plots and `quality` bar chart under `outputs/distributions/`.
+- **Already in place:** distribution plots and `quality` bar chart under `outputs/eda/` (from `analyze_distributions.R` and `01_eda.R`).
 - **Still useful:** correlation heatmap, boxplots of predictors by `quality`, and red vs. white comparisons if not already explored.
 
 **Chlorides and log transform:** Chlorides is typically **right-skewed** (long right tail, many small values). Logging (e.g. `log(chlorides)` or `log1p(chlorides)` if any zeros) can pull in the tail and make the variable easier for **OLS**, **Naive Bayes (Gaussian)**, and other methods that benefit from more symmetric inputs. It does **not** guarantee better test performance—**compare in cross-validation** with and without the log version (or replace raw chlorides with log-chlorides in the feature set, not both, to avoid collinearity). If you add it, apply the **same** definition on `train.csv` and `test.csv` and document it in the write-up.
@@ -154,24 +141,16 @@ A compact path from EDA through model fitting to **side-by-side comparison** (no
 
 ### Step 3 — Fit and lightly tune candidates
 
-Work through the families in §2 in a sensible order: **OLS** and **multinomial logistic** first, then **Ridge/Lasso/Elastic Net** logistic, **ordinal logistic**, **Naive Bayes**, **KNN** (tune `k`), **Random Forest / XGBoost / CatBoost** (small grid or defaults + a bit of tuning), then **regression-then-round** variants (**Ridge/Lasso**, **RF reg**, **XGBoost reg**) with rounding for discrete metrics.
+Work through the families in §2 in a sensible order: **OLS** and **multinomial logistic** first, then **Ridge/Lasso/Elastic Net** logistic, **Naive Bayes**, **KNN** (tune `k`), **Random Forest (classifier)** (defaults + optional tuning), then **regression-then-round** variants (**Ridge/Lasso**, **RF reg**) with rounding for discrete metrics.
 
 - Keep a **single table**: model name, key settings, **CV accuracy**, **CV RMSE** (see §5 for definitions).
 
-### Step 4 — Full training set metrics and comparison figures
+### Step 4 — Comparison figures (CV only)
 
-- **Fit each model** on the **entire** training set (same hyperparameters you used in CV).
-- On that same full training set, compute **training-set accuracy** and **training-set RMSE** for each model (these are in-sample / optimistic; they complement CV, not replace it).
-- **Do not** need to pick a “winner” yet—goal is a clear visual comparison across models.
+- **Do not** report misleading in-sample metrics from fitting on the full training set and evaluating on the same rows.
+- **Comparison plot:** One row with two facets (**Accuracy** and **RMSE**), each bar showing mean CV metric ± SD across folds (`scripts/04_plots.R`).
 
-**Comparison plot(s):** Build figure(s) so each model can be compared on **accuracy** and **RMSE** in both settings:
-
-| Setting | What to plot |
-|--------|----------------|
-| **Cross-validation** | Per model: CV accuracy (e.g. mean across folds) and CV RMSE (mean across folds). |
-| **Full training set** | Per model: accuracy and RMSE computed on the full training data after refitting on all rows. |
-
-Use a layout that keeps both metrics visible—for example **two panels** (one for CV, one for full training), each with **paired bars or points** per model: one series for **accuracy**, one for **RMSE**. Because accuracy (often 0–1 or 0–100%) and RMSE (error scale) live on different scales, use **dual y-axes** *or* **normalize** RMSE for display *or* **two separate subplots per panel** (accuracy vs. RMSE) with models on the x-axis—choose whichever is clearest for your report. The point is to **see every model’s accuracy and RMSE together** for CV and again for the full training run.
+After CV, preprocessing scaling fit on the **full** training set is saved as `outputs/models/scale_params.rds` for consistent application to `test.csv` (same means/SDs as a single global preprocess).
 
 When you later have `test.csv`, apply the same preprocessing and save predictions; test metrics can follow the same accuracy + RMSE convention if labels are available.
 
@@ -179,15 +158,14 @@ When you later have `test.csv`, apply the same preprocessing and save prediction
 
 ## 5. Evaluation metrics (accuracy and RMSE only)
 
-Use **only** these two metrics everywhere (CV folds, full training set, and test if applicable).
+Use **only** these two metrics for model comparison (CV folds, and test if applicable).
 
 | Metric | Definition (for this project) |
 |--------|--------------------------------|
 | **Accuracy** | Fraction of observations where predicted `quality` equals true `quality`. For regressors and “regression → round,” use **rounded** predictions (clipped to valid scores) when computing accuracy. |
 | **RMSE** | \(\sqrt{\frac{1}{n}\sum_i (y_i - \hat{y}_i)^2}\) where \(y_i\) is true `quality` (numeric). Use **continuous** predictions \(\hat{y}_i\) for OLS and regression models. For **classifiers** (predicted integer class), \(\hat{y}_i\) is that predicted class treated as a number—so RMSE still measures typical error magnitude on the 0–10 quality scale. |
 
-**CV:** Report **mean** accuracy and **mean** RMSE across folds (and optionally fold-wise SD in a table if useful).  
-**Full training set:** Report a single accuracy and a single RMSE per model after refitting on all training rows.
+**CV:** Report **mean** accuracy and **mean** RMSE across folds (and optionally fold-wise SD in a table if useful).
 
 ---
 

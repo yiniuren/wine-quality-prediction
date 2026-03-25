@@ -75,3 +75,11 @@ for (m in MODEL_REGISTRY) {
 write.csv(results, file.path(output_dir, "cv_results.csv"), row.names = FALSE)
 cat("\nCV results saved to", file.path(output_dir, "cv_results.csv"), "\n")
 print(results)
+
+# ---- Save preprocessing scaling from full training set (for test prediction) ----
+
+models_dir <- "outputs/models"
+dir.create(models_dir, recursive = TRUE, showWarnings = FALSE)
+proc_full <- preprocess(raw)
+saveRDS(proc_full$scale_params, file.path(models_dir, "scale_params.rds"))
+cat("Saved scale_params.rds (full training preprocessing)\n")

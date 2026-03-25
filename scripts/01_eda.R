@@ -48,30 +48,7 @@ ggsave(file.path(output_dir, "boxplots_by_quality.png"),
        p_box, width = 12, height = 10, dpi = 300)
 cat("Saved boxplots_by_quality.png\n")
 
-# ---- 3. Red vs. white wine comparison (density) ----------------------------
-
-features_rw <- c("alcohol", "volatile.acidity", "sulphates",
-                 "residual.sugar", "pH", "density")
-
-long_rw <- melt(train[, c(features_rw, "is_red")],
-                id.vars = "is_red",
-                variable.name = "feature",
-                value.name = "value")
-long_rw$wine_type <- ifelse(long_rw$is_red == 1, "Red", "White")
-
-p_rw <- ggplot(long_rw, aes(x = value, fill = wine_type)) +
-  geom_density(alpha = 0.45) +
-  facet_wrap(~ feature, scales = "free", ncol = 3) +
-  scale_fill_manual(values = c(Red = "firebrick", White = "gold3")) +
-  labs(title = "Red vs. White Wine — Feature Densities",
-       x = NULL, y = "Density", fill = NULL) +
-  theme_minimal()
-
-ggsave(file.path(output_dir, "red_vs_white.png"),
-       p_rw, width = 12, height = 7, dpi = 300)
-cat("Saved red_vs_white.png\n")
-
-# ---- 3b. Red vs. white — all predictors (overlaid densities) ----------------
+# ---- 3. Red vs. white — all predictors (overlaid densities) ----------------
 
 features_all <- setdiff(colnames(train), c("quality", "is_red"))
 long_rw_all <- melt(train[, c(features_all, "is_red"), drop = FALSE],
@@ -93,7 +70,7 @@ ggsave(file.path(output_dir, "red_vs_white_all_features.png"),
        p_rw_all, width = 14, height = 13, dpi = 300)
 cat("Saved red_vs_white_all_features.png\n")
 
-# ---- 3c. Red vs. white — quality (proportional bars, semi-transparent) -----
+# ---- 4. Red vs. white — quality (proportional bars, semi-transparent) -----
 
 quality_levels <- sort(unique(train$quality))
 prop_rows <- list()
@@ -128,7 +105,7 @@ ggsave(file.path(output_dir, "red_vs_white_quality.png"),
        p_q_rw, width = 9, height = 5, dpi = 300)
 cat("Saved red_vs_white_quality.png\n")
 
-# ---- 4. Chlorides: raw vs. log1p comparison --------------------------------
+# ---- 5. Chlorides: raw vs. log1p comparison --------------------------------
 
 comp <- data.frame(
   Raw      = train$chlorides,
@@ -137,11 +114,12 @@ comp <- data.frame(
 long_comp <- melt(comp, variable.name = "Transform", value.name = "value")
 
 p_chl <- ggplot(long_comp, aes(x = value)) +
-  geom_histogram(bins = 40, fill = "darkorange", color = "black") +
+  geom_density(fill = "steelblue", alpha = 0.35, color = "black", linewidth = 0.4) +
   facet_wrap(~ Transform, scales = "free_x") +
   labs(title = "Chlorides — Raw vs. log1p Transform",
-       x = NULL, y = "Count") +
-  theme_minimal()
+       x = NULL, y = "Density") +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ggsave(file.path(output_dir, "chlorides_log_comparison.png"),
        p_chl, width = 10, height = 4.5, dpi = 300)
