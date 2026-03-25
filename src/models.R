@@ -9,6 +9,8 @@ suppressPackageStartupMessages({
 # 1. OLS
 # ---------------------------------------------------------------------------
 train_and_predict_ols <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   df <- data.frame(quality = y_train, X_train, check.names = FALSE)
   fit <- lm(quality ~ ., data = df)
   preds <- predict(fit, newdata = data.frame(X_test, check.names = FALSE))
@@ -19,8 +21,10 @@ train_and_predict_ols <- function(X_train, y_train, X_test) {
 # 2. Multinomial logistic regression
 # ---------------------------------------------------------------------------
 train_and_predict_multinom <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   df <- data.frame(quality = factor(y_train), X_train, check.names = FALSE)
-  fit <- suppressWarnings(multinom(quality ~ ., data = df, trace = FALSE, MaxNWts = 5000))
+  fit <- suppressWarnings(multinom(quality ~ ., data = df, trace = FALSE, MaxNWts = 20000))
   preds <- predict(fit, newdata = data.frame(X_test, check.names = FALSE))
   list(predictions = as.integer(as.character(preds)), model = fit)
 }
@@ -29,6 +33,8 @@ train_and_predict_multinom <- function(X_train, y_train, X_test) {
 # 3. Ridge logistic (glmnet, alpha = 0)
 # ---------------------------------------------------------------------------
 train_and_predict_ridge_logistic <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   X_mat <- as.matrix(X_train)
   y_fac <- factor(y_train)
   set.seed(42)
@@ -43,6 +49,8 @@ train_and_predict_ridge_logistic <- function(X_train, y_train, X_test) {
 # 4. Lasso logistic (glmnet, alpha = 1)
 # ---------------------------------------------------------------------------
 train_and_predict_lasso_logistic <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   X_mat <- as.matrix(X_train)
   y_fac <- factor(y_train)
   set.seed(42)
@@ -57,6 +65,8 @@ train_and_predict_lasso_logistic <- function(X_train, y_train, X_test) {
 # 5. Elastic Net logistic (glmnet, alpha = 0.5)
 # ---------------------------------------------------------------------------
 train_and_predict_enet_logistic <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   X_mat <- as.matrix(X_train)
   y_fac <- factor(y_train)
   set.seed(42)
@@ -71,6 +81,8 @@ train_and_predict_enet_logistic <- function(X_train, y_train, X_test) {
 # 6. KNN (internal 3-fold CV to pick k from {5, 7, 11})
 # ---------------------------------------------------------------------------
 train_and_predict_knn <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   X_tr <- as.matrix(X_train)
   X_te <- as.matrix(X_test)
   y_fac <- factor(y_train)
@@ -128,6 +140,8 @@ train_and_predict_naive_bayes <- function(X_train, y_train, X_test) {
 # 9. Ridge regression (glmnet, alpha = 0, gaussian)
 # ---------------------------------------------------------------------------
 train_and_predict_ridge_reg <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   X_mat <- as.matrix(X_train)
   set.seed(42)
   cv_fit <- cv.glmnet(X_mat, y_train, family = "gaussian", alpha = 0)
@@ -139,6 +153,8 @@ train_and_predict_ridge_reg <- function(X_train, y_train, X_test) {
 # 10. Lasso regression (glmnet, alpha = 1, gaussian)
 # ---------------------------------------------------------------------------
 train_and_predict_lasso_reg <- function(X_train, y_train, X_test) {
+  X_train <- add_quadratic_features(X_train)
+  X_test <- add_quadratic_features(X_test)
   X_mat <- as.matrix(X_train)
   set.seed(42)
   cv_fit <- cv.glmnet(X_mat, y_train, family = "gaussian", alpha = 1)

@@ -10,6 +10,8 @@ row’s `is_red`.
 There are **11** base model types and **11** stratified-by-wine-type variants
 (**22** entries in the registry total).
 
+**Feature sets:** After the usual preprocessing (log-chlorides, z-scoring of continuous inputs), **OLS**, **multinomial logistic**, **glmnet** models (logistic and regression), and **KNN** each add **squared terms** for every continuous predictor (`*_sq`). **Random Forest** and **Naive Bayes** use the preprocessed features only (no quadratic expansion).
+
 ## Dataset
 
 Based on the Portuguese "Vinho Verde" wine dataset

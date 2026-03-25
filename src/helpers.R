@@ -49,6 +49,20 @@ apply_preprocess <- function(df, scale_params) {
   list(X = X, y = y)
 }
 
+# Append squared terms for every continuous column (all except is_red).
+# Apply the same transformation to train and test for a given model.
+add_quadratic_features <- function(X) {
+  if (!is.data.frame(X)) {
+    X <- as.data.frame(X)
+  }
+  cont_cols <- setdiff(colnames(X), "is_red")
+  out <- X
+  for (col in cont_cols) {
+    out[[paste0(col, "_sq")]] <- X[[col]]^2
+  }
+  out
+}
+
 create_cv_folds <- function(y, k = 5, seed = SEED) {
   set.seed(seed)
   createFolds(factor(y), k = k, list = TRUE, returnTrain = FALSE)
