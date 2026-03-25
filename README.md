@@ -2,7 +2,13 @@
 
 Predict wine quality (score 3–9) from physicochemical properties using a
 suite of classification and regression models, then compare their accuracy
-and RMSE side by side.
+and RMSE side by side. Models whose names end with **`(by wine type)`** fit
+one submodel on red wines only and one on white wines only (no `is_red`
+feature inside each subfit); predictions use the submodel that matches each
+row’s `is_red`.
+
+There are **11** base model types and **11** stratified-by-wine-type variants
+(**22** entries in the registry total).
 
 ## Dataset
 
@@ -34,15 +40,8 @@ Rscript src/install_packages.R
 | glmnet | Ridge / Lasso / Elastic Net (classification & regression) |
 | class | K-Nearest Neighbors |
 | randomForest | Random Forest (classifier & regressor) |
-| xgboost | XGBoost (classifier & regressor) |
-| catboost | CatBoost classifier (installed from GitHub — optional) |
 | e1071 | Naive Bayes |
-| MASS | Ordinal logistic regression (`polr`) |
 | caret | Stratified fold creation (`createFolds`) |
-| remotes | Install CatBoost from GitHub |
-
-If CatBoost fails to install, all other models still run; CatBoost is
-simply skipped.
 
 ## Usage
 
@@ -56,19 +55,18 @@ Or run individual steps:
 
 ```bash
 make eda          # distribution plots + correlation heatmap + boxplots
-make cv           # 5-fold stratified cross-validation for all models
-make full_train   # fit all models on full training set, save .rds objects
-make plots        # 2x2 comparison figure (Accuracy & RMSE, CV & Train)
+make cv           # 5-fold stratified CV + save scale_params.rds for test prep
+make plots        # CV accuracy & RMSE (single-row faceted figure)
 make predict      # generate predictions on test.csv (when available)
-make clean        # remove generated results and saved models
+make clean        # remove generated results and saved preprocessing
 ```
 
 Each step can also be invoked directly:
 
 ```bash
+Rscript analyze_distributions.R
 Rscript scripts/01_eda.R
 Rscript scripts/02_cv.R
-Rscript scripts/03_full_train.R
 Rscript scripts/04_plots.R
 Rscript scripts/05_predict_test.R
 ```
@@ -89,15 +87,13 @@ wine-quality-prediction/
 ├── scripts/
 │   ├── 01_eda.R                    # Exploratory data analysis
 │   ├── 02_cv.R                     # Cross-validation runner
-│   ├── 03_full_train.R             # Full training set evaluation
-│   ├── 04_plots.R                  # Comparison figures
-│   └── 05_predict_test.R           # Test set prediction (placeholder)
+│   ├── 04_plots.R                  # Comparison figures (CV only)
+│   └── 05_predict_test.R           # Test set prediction
 ├── outputs/
-│   ├── distributions/              # Distribution plots (analyze_distributions.R)
-│   ├── eda/                        # EDA plots (scripts/01_eda.R)
-│   ├── models/                     # Saved .rds model objects
-│   └── results/                    # CSV results & comparison figure
-├── analyze_distributions.R         # Original distribution script
+│   ├── eda/                        # All EDA & distribution plots
+│   ├── models/                     # scale_params.rds (from end of CV)
+│   └── results/                    # cv_results.csv & comparison figure
+├── analyze_distributions.R         # Per-variable distributions → outputs/eda
 ├── Makefile
 ├── PROJECT_PLAN.md
 ├── AI_USAGE.md
@@ -111,8 +107,7 @@ wine-quality-prediction/
 | **Accuracy** | Fraction of exact matches (rounded predictions for regressors) |
 | **RMSE** | Root mean squared error on the 3–9 quality scale |
 
-Both metrics are reported for 5-fold CV (mean ± SD) and for the full
-training set (in-sample).
+Metrics are reported for **5-fold stratified cross-validation** (mean ± SD across folds). Preprocessing parameters for applying the same scaling to `test.csv` are saved as `outputs/models/scale_params.rds` at the end of `scripts/02_cv.R`.
 
 ## Citation
 

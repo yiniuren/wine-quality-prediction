@@ -7,8 +7,8 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 cran_packages <- c(
   "ggplot2", "reshape2",
-  "nnet", "glmnet", "class", "randomForest", "xgboost",
-  "e1071", "MASS", "caret", "remotes"
+  "nnet", "glmnet", "class", "randomForest",
+  "e1071", "caret"
 )
 
 for (pkg in cran_packages) {
@@ -20,28 +20,12 @@ for (pkg in cran_packages) {
   }
 }
 
-if (!requireNamespace("catboost", quietly = TRUE)) {
-  cat("Installing catboost from GitHub (this may take several minutes)...\n")
-  tryCatch({
-    remotes::install_github("catboost/catboost", subdir = "catboost/R-package")
-  }, error = function(e) {
-    warning(
-      "Failed to install catboost: ", e$message, "\n",
-      "CatBoost models will be skipped during training.\n",
-      "See https://catboost.ai/en/docs/installation/r-installation-binary-installation"
-    )
-  })
-} else {
-  cat("catboost already installed.\n")
-}
-
 cat("\n--- Package verification ---\n")
-all_pkgs <- c(cran_packages, "catboost")
 all_ok <- TRUE
-for (pkg in all_pkgs) {
+for (pkg in cran_packages) {
   ok <- requireNamespace(pkg, quietly = TRUE)
   cat(sprintf("  %-15s %s\n", pkg, if (ok) "OK" else "MISSING"))
-  if (!ok && pkg != "catboost") all_ok <- FALSE
+  if (!ok) all_ok <- FALSE
 }
 
 if (!all_ok) {

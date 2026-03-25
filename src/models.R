@@ -2,9 +2,7 @@ suppressPackageStartupMessages({
   library(nnet)
   library(glmnet)
   library(randomForest)
-  library(xgboost)
   library(e1071)
-  library(MASS)
 })
 
 # ---------------------------------------------------------------------------
@@ -114,79 +112,20 @@ train_and_predict_rf_class <- function(X_train, y_train, X_test) {
 }
 
 # ---------------------------------------------------------------------------
-# 8. XGBoost classifier (multi:softmax)
-# ---------------------------------------------------------------------------
-train_and_predict_xgb_class <- function(X_train, y_train, X_test) {
-  offset    <- min(y_train)
-  labels    <- y_train - offset
-  num_class <- max(labels) + 1L
-
-  dtrain <- xgb.DMatrix(data = as.matrix(X_train), label = labels)
-  dtest  <- xgb.DMatrix(data = as.matrix(X_test))
-
-  params <- list(objective  = "multi:softmax",
-                 num_class  = num_class,
-                 max_depth  = 6,
-                 eta        = 0.1,
-                 nthread    = 1)
-  set.seed(42)
-  fit <- xgb.train(params, dtrain, nrounds = 200, verbose = 0)
-  preds <- predict(fit, dtest) + offset
-  list(predictions = as.integer(preds), model = fit)
-}
-
-# ---------------------------------------------------------------------------
-# 9. CatBoost classifier
-# ---------------------------------------------------------------------------
-train_and_predict_catboost_class <- function(X_train, y_train, X_test) {
-  if (!requireNamespace("catboost", quietly = TRUE)) {
-    warning("catboost not installed — skipping")
-    return(NULL)
-  }
-
-  offset <- min(y_train)
-  labels <- y_train - offset
-
-  train_pool <- catboost::catboost.load_pool(data = as.data.frame(X_train),
-                                              label = labels)
-  test_pool  <- catboost::catboost.load_pool(data = as.data.frame(X_test))
-
-  params <- list(loss_function = "MultiClass",
-                 iterations    = 200,
-                 depth         = 6,
-                 learning_rate = 0.1,
-                 verbose       = 0,
-                 thread_count  = 1)
-
-  fit <- catboost::catboost.train(train_pool, params = params)
-  preds <- catboost::catboost.predict(fit, test_pool,
-                                       prediction_type = "Class")
-  preds <- as.integer(preds) + offset
-  list(predictions = preds, model = fit)
-}
-
-# ---------------------------------------------------------------------------
-# 10. Naive Bayes (Gaussian)
+# 8. Naive Bayes (Gaussian)
 # ---------------------------------------------------------------------------
 train_and_predict_naive_bayes <- function(X_train, y_train, X_test) {
-  fit <- naiveBayes(x = as.data.frame(X_train), y = factor(y_train))
-  preds <- predict(fit, newdata = as.data.frame(X_test))
+  # Gaussian Naive Bayes is a poor fit for binary is_red; use chemistry-only features.
+  nb_cols <- setdiff(colnames(X_train), "is_red")
+  X_tr <- X_train[, nb_cols, drop = FALSE]
+  X_te <- X_test[, nb_cols, drop = FALSE]
+  fit <- naiveBayes(x = as.data.frame(X_tr), y = factor(y_train))
+  preds <- predict(fit, newdata = as.data.frame(X_te))
   list(predictions = as.integer(as.character(preds)), model = fit)
 }
 
 # ---------------------------------------------------------------------------
-# 11. Ordinal logistic regression (proportional odds)
-# ---------------------------------------------------------------------------
-train_and_predict_ordinal <- function(X_train, y_train, X_test) {
-  df <- data.frame(quality = factor(y_train, ordered = TRUE),
-                   X_train, check.names = FALSE)
-  fit <- suppressWarnings(polr(quality ~ ., data = df, Hess = TRUE))
-  preds <- predict(fit, newdata = data.frame(X_test, check.names = FALSE))
-  list(predictions = as.integer(as.character(preds)), model = fit)
-}
-
-# ---------------------------------------------------------------------------
-# 12. Ridge regression (glmnet, alpha = 0, gaussian)
+# 9. Ridge regression (glmnet, alpha = 0, gaussian)
 # ---------------------------------------------------------------------------
 train_and_predict_ridge_reg <- function(X_train, y_train, X_test) {
   X_mat <- as.matrix(X_train)
@@ -197,7 +136,7 @@ train_and_predict_ridge_reg <- function(X_train, y_train, X_test) {
 }
 
 # ---------------------------------------------------------------------------
-# 13. Lasso regression (glmnet, alpha = 1, gaussian)
+# 10. Lasso regression (glmnet, alpha = 1, gaussian)
 # ---------------------------------------------------------------------------
 train_and_predict_lasso_reg <- function(X_train, y_train, X_test) {
   X_mat <- as.matrix(X_train)
@@ -208,7 +147,7 @@ train_and_predict_lasso_reg <- function(X_train, y_train, X_test) {
 }
 
 # ---------------------------------------------------------------------------
-# 14. Random Forest regressor
+# 11. Random Forest regressor
 # ---------------------------------------------------------------------------
 train_and_predict_rf_reg <- function(X_train, y_train, X_test) {
   set.seed(42)
@@ -218,39 +157,64 @@ train_and_predict_rf_reg <- function(X_train, y_train, X_test) {
 }
 
 # ---------------------------------------------------------------------------
-# 15. XGBoost regressor (reg:squarederror)
+# Separate red / white submodels (no is_red column in each subfit)
 # ---------------------------------------------------------------------------
-train_and_predict_xgb_reg <- function(X_train, y_train, X_test) {
-  dtrain <- xgb.DMatrix(data = as.matrix(X_train), label = y_train)
-  dtest  <- xgb.DMatrix(data = as.matrix(X_test))
+strip_stratified_features <- function(X) {
+  if (!"is_red" %in% colnames(X)) {
+    return(X)
+  }
+  X[, setdiff(colnames(X), "is_red"), drop = FALSE]
+}
 
-  params <- list(objective = "reg:squarederror",
-                 max_depth = 6,
-                 eta       = 0.1,
-                 nthread   = 1)
-  set.seed(42)
-  fit <- xgb.train(params, dtrain, nrounds = 200, verbose = 0)
-  preds <- predict(fit, dtest)
-  list(predictions = as.numeric(preds), model = fit)
+wrap_stratified_by_wine_type <- function(base_fn) {
+  function(X_train, y_train, X_test) {
+    if (!"is_red" %in% colnames(X_train) || !"is_red" %in% colnames(X_test)) {
+      stop("is_red column required for stratified-by-wine-type models")
+    }
+    red   <- which(X_train$is_red == 1)
+    white <- which(X_train$is_red == 0)
+    if (length(red) == 0L || length(white) == 0L) {
+      return(base_fn(X_train, y_train, X_test))
+    }
+    Xtr_s <- strip_stratified_features(X_train)
+    Xte_s <- strip_stratified_features(X_test)
+    out_r <- base_fn(Xtr_s[red, , drop = FALSE], y_train[red], Xte_s)
+    out_w <- base_fn(Xtr_s[white, , drop = FALSE], y_train[white], Xte_s)
+    if (is.null(out_r) || is.null(out_w)) {
+      return(NULL)
+    }
+    ir_te <- X_test$is_red == 1
+    preds <- ifelse(ir_te, out_r$predictions, out_w$predictions)
+    list(
+      predictions = preds,
+      model = list(red = out_r$model, white = out_w$model)
+    )
+  }
 }
 
 # ---------------------------------------------------------------------------
-# MODEL_REGISTRY — name, function, regressor flag
+# MODEL_REGISTRY — 11 global + 11 by wine type
 # ---------------------------------------------------------------------------
-MODEL_REGISTRY <- list(
-  list(name = "OLS",                fn = train_and_predict_ols,            is_reg = TRUE),
-  list(name = "Multinomial Logistic", fn = train_and_predict_multinom,     is_reg = FALSE),
-  list(name = "Ridge Logistic",     fn = train_and_predict_ridge_logistic, is_reg = FALSE),
-  list(name = "Lasso Logistic",     fn = train_and_predict_lasso_logistic, is_reg = FALSE),
-  list(name = "Elastic Net Logistic", fn = train_and_predict_enet_logistic, is_reg = FALSE),
-  list(name = "KNN",                fn = train_and_predict_knn,            is_reg = FALSE),
-  list(name = "Random Forest (clf)", fn = train_and_predict_rf_class,      is_reg = FALSE),
-  list(name = "XGBoost (clf)",      fn = train_and_predict_xgb_class,      is_reg = FALSE),
-  list(name = "CatBoost (clf)",     fn = train_and_predict_catboost_class,  is_reg = FALSE),
-  list(name = "Naive Bayes",        fn = train_and_predict_naive_bayes,    is_reg = FALSE),
-  list(name = "Ordinal Logistic",   fn = train_and_predict_ordinal,        is_reg = FALSE),
-  list(name = "Ridge Regression",   fn = train_and_predict_ridge_reg,      is_reg = TRUE),
-  list(name = "Lasso Regression",   fn = train_and_predict_lasso_reg,      is_reg = TRUE),
-  list(name = "Random Forest (reg)", fn = train_and_predict_rf_reg,        is_reg = TRUE),
-  list(name = "XGBoost (reg)",      fn = train_and_predict_xgb_reg,        is_reg = TRUE)
+BASE_MODEL_REGISTRY <- list(
+  list(name = "OLS",                  fn = train_and_predict_ols,             is_reg = TRUE),
+  list(name = "Multinomial Logistic", fn = train_and_predict_multinom,       is_reg = FALSE),
+  list(name = "Ridge Logistic",       fn = train_and_predict_ridge_logistic,  is_reg = FALSE),
+  list(name = "Lasso Logistic",       fn = train_and_predict_lasso_logistic,  is_reg = FALSE),
+  list(name = "Elastic Net Logistic", fn = train_and_predict_enet_logistic,   is_reg = FALSE),
+  list(name = "KNN",                  fn = train_and_predict_knn,             is_reg = FALSE),
+  list(name = "Random Forest (clf)",  fn = train_and_predict_rf_class,        is_reg = FALSE),
+  list(name = "Naive Bayes",          fn = train_and_predict_naive_bayes,      is_reg = FALSE),
+  list(name = "Ridge Regression",     fn = train_and_predict_ridge_reg,        is_reg = TRUE),
+  list(name = "Lasso Regression",     fn = train_and_predict_lasso_reg,        is_reg = TRUE),
+  list(name = "Random Forest (reg)",  fn = train_and_predict_rf_reg,           is_reg = TRUE)
 )
+
+STRATIFIED_MODEL_REGISTRY <- lapply(BASE_MODEL_REGISTRY, function(m) {
+  list(
+    name   = paste0(m$name, " (by wine type)"),
+    fn     = wrap_stratified_by_wine_type(m$fn),
+    is_reg = m$is_reg
+  )
+})
+
+MODEL_REGISTRY <- c(BASE_MODEL_REGISTRY, STRATIFIED_MODEL_REGISTRY)

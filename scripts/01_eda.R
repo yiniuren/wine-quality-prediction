@@ -48,30 +48,64 @@ ggsave(file.path(output_dir, "boxplots_by_quality.png"),
        p_box, width = 12, height = 10, dpi = 300)
 cat("Saved boxplots_by_quality.png\n")
 
-# ---- 3. Red vs. white wine comparison (density) ----------------------------
+# ---- 3. Red vs. white — all predictors (overlaid densities) ----------------
 
-features_rw <- c("alcohol", "volatile.acidity", "sulphates",
-                 "residual.sugar", "pH", "density")
+features_all <- setdiff(colnames(train), c("quality", "is_red"))
+long_rw_all <- melt(train[, c(features_all, "is_red"), drop = FALSE],
+                    id.vars = "is_red",
+                    variable.name = "feature",
+                    value.name = "value")
+long_rw_all$wine_type <- ifelse(long_rw_all$is_red == 1, "Red", "White")
 
-long_rw <- melt(train[, c(features_rw, "is_red")],
-                id.vars = "is_red",
-                variable.name = "feature",
-                value.name = "value")
-long_rw$wine_type <- ifelse(long_rw$is_red == 1, "Red", "White")
-
-p_rw <- ggplot(long_rw, aes(x = value, fill = wine_type)) +
+p_rw_all <- ggplot(long_rw_all, aes(x = value, fill = wine_type)) +
   geom_density(alpha = 0.45) +
   facet_wrap(~ feature, scales = "free", ncol = 3) +
   scale_fill_manual(values = c(Red = "firebrick", White = "gold3")) +
-  labs(title = "Red vs. White Wine — Feature Densities",
+  labs(title = "Red vs. White Wine — All Feature Densities",
        x = NULL, y = "Density", fill = NULL) +
+  theme_minimal() +
+  theme(strip.text = element_text(size = 8))
+
+ggsave(file.path(output_dir, "red_vs_white_all_features.png"),
+       p_rw_all, width = 14, height = 13, dpi = 300)
+cat("Saved red_vs_white_all_features.png\n")
+
+# ---- 4. Red vs. white — quality (proportional bars, semi-transparent) -----
+
+quality_levels <- sort(unique(train$quality))
+prop_rows <- list()
+for (wt in c("White", "Red")) {
+  sub <- train[if (wt == "Red") train$is_red == 1 else train$is_red == 0, ]
+  tab <- table(factor(sub$quality, levels = quality_levels))
+  n_tot <- sum(tab)
+  prop_rows[[wt]] <- data.frame(
+    quality    = quality_levels,
+    proportion = as.numeric(tab) / n_tot,
+    wine_type  = wt,
+    stringsAsFactors = FALSE
+  )
+}
+df_q <- do.call(rbind, prop_rows)
+df_q$x <- df_q$quality + ifelse(df_q$wine_type == "Red", -0.22, 0.22)
+
+p_q_rw <- ggplot(df_q, aes(x = x, y = proportion, fill = wine_type)) +
+  geom_col(alpha = 0.55, width = 0.38, color = NA) +
+  scale_x_continuous(breaks = quality_levels, labels = quality_levels) +
+  scale_fill_manual(values = c(Red = "firebrick", White = "gold3")) +
+  labs(
+    title = "Quality distribution: Red vs. White wine",
+    subtitle = "Proportion within each wine type; bars offset slightly for overlap",
+    x = "quality",
+    y = "Proportion",
+    fill = NULL
+  ) +
   theme_minimal()
 
-ggsave(file.path(output_dir, "red_vs_white.png"),
-       p_rw, width = 12, height = 7, dpi = 300)
-cat("Saved red_vs_white.png\n")
+ggsave(file.path(output_dir, "red_vs_white_quality.png"),
+       p_q_rw, width = 9, height = 5, dpi = 300)
+cat("Saved red_vs_white_quality.png\n")
 
-# ---- 4. Chlorides: raw vs. log1p comparison --------------------------------
+# ---- 5. Chlorides: raw vs. log1p comparison --------------------------------
 
 comp <- data.frame(
   Raw      = train$chlorides,
@@ -80,11 +114,12 @@ comp <- data.frame(
 long_comp <- melt(comp, variable.name = "Transform", value.name = "value")
 
 p_chl <- ggplot(long_comp, aes(x = value)) +
-  geom_histogram(bins = 40, fill = "darkorange", color = "black") +
+  geom_density(fill = "steelblue", alpha = 0.35, color = "black", linewidth = 0.4) +
   facet_wrap(~ Transform, scales = "free_x") +
   labs(title = "Chlorides — Raw vs. log1p Transform",
-       x = NULL, y = "Count") +
-  theme_minimal()
+       x = NULL, y = "Density") +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(hjust = 0.5))
 
 ggsave(file.path(output_dir, "chlorides_log_comparison.png"),
        p_chl, width = 10, height = 4.5, dpi = 300)

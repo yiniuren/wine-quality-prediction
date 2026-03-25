@@ -20,9 +20,10 @@ scale_params <- readRDS(file.path(models_dir, "scale_params.rds"))
 test_raw     <- read.csv(test_path, sep = ";", check.names = FALSE)
 proc_test    <- apply_preprocess(test_raw, scale_params)
 
-# Also preprocess full training set to refit models
-raw  <- load_train_data()
-proc <- preprocess(raw)
+# Also preprocess full training set to refit models (match saved scale_params)
+raw <- load_train_data()
+lc  <- if (!is.null(scale_params$log_chlorides)) scale_params$log_chlorides else TRUE
+proc <- preprocess(raw, log_chlorides = lc)
 
 # ---- Predict with each model -----------------------------------------------
 
