@@ -71,6 +71,63 @@ ggsave(file.path(output_dir, "red_vs_white.png"),
        p_rw, width = 12, height = 7, dpi = 300)
 cat("Saved red_vs_white.png\n")
 
+# ---- 3b. Red vs. white — all predictors (overlaid densities) ----------------
+
+features_all <- setdiff(colnames(train), c("quality", "is_red"))
+long_rw_all <- melt(train[, c(features_all, "is_red"), drop = FALSE],
+                    id.vars = "is_red",
+                    variable.name = "feature",
+                    value.name = "value")
+long_rw_all$wine_type <- ifelse(long_rw_all$is_red == 1, "Red", "White")
+
+p_rw_all <- ggplot(long_rw_all, aes(x = value, fill = wine_type)) +
+  geom_density(alpha = 0.45) +
+  facet_wrap(~ feature, scales = "free", ncol = 3) +
+  scale_fill_manual(values = c(Red = "firebrick", White = "gold3")) +
+  labs(title = "Red vs. White Wine — All Feature Densities",
+       x = NULL, y = "Density", fill = NULL) +
+  theme_minimal() +
+  theme(strip.text = element_text(size = 8))
+
+ggsave(file.path(output_dir, "red_vs_white_all_features.png"),
+       p_rw_all, width = 14, height = 13, dpi = 300)
+cat("Saved red_vs_white_all_features.png\n")
+
+# ---- 3c. Red vs. white — quality (proportional bars, semi-transparent) -----
+
+quality_levels <- sort(unique(train$quality))
+prop_rows <- list()
+for (wt in c("White", "Red")) {
+  sub <- train[if (wt == "Red") train$is_red == 1 else train$is_red == 0, ]
+  tab <- table(factor(sub$quality, levels = quality_levels))
+  n_tot <- sum(tab)
+  prop_rows[[wt]] <- data.frame(
+    quality    = quality_levels,
+    proportion = as.numeric(tab) / n_tot,
+    wine_type  = wt,
+    stringsAsFactors = FALSE
+  )
+}
+df_q <- do.call(rbind, prop_rows)
+df_q$x <- df_q$quality + ifelse(df_q$wine_type == "Red", -0.22, 0.22)
+
+p_q_rw <- ggplot(df_q, aes(x = x, y = proportion, fill = wine_type)) +
+  geom_col(alpha = 0.55, width = 0.38, color = NA) +
+  scale_x_continuous(breaks = quality_levels, labels = quality_levels) +
+  scale_fill_manual(values = c(Red = "firebrick", White = "gold3")) +
+  labs(
+    title = "Quality distribution: Red vs. White wine",
+    subtitle = "Proportion within each wine type; bars offset slightly for overlap",
+    x = "quality",
+    y = "Proportion",
+    fill = NULL
+  ) +
+  theme_minimal()
+
+ggsave(file.path(output_dir, "red_vs_white_quality.png"),
+       p_q_rw, width = 9, height = 5, dpi = 300)
+cat("Saved red_vs_white_quality.png\n")
+
 # ---- 4. Chlorides: raw vs. log1p comparison --------------------------------
 
 comp <- data.frame(
