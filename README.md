@@ -57,9 +57,9 @@ Or run individual steps:
 
 ```bash
 make eda          # distribution plots + correlation heatmap + boxplots
-make cv           # 5-fold stratified CV + save scale_params.rds for test prep
+make cv           # 5-fold CV; saves cv_results.csv, scale_params.rds, and selected_models.rds (two winners — see below)
 make plots        # CV accuracy & RMSE (single-row faceted figure)
-make predict      # generate predictions on test.csv (when available)
+make predict      # requires `make cv` first; runs only the two CV-selected models on test.csv (see below)
 make clean        # remove generated results and saved preprocessing
 ```
 
@@ -93,8 +93,8 @@ wine-quality-prediction/
 │   └── 05_predict_test.R           # Test set prediction
 ├── outputs/
 │   ├── eda/                        # All EDA & distribution plots
-│   ├── models/                     # scale_params.rds (from end of CV)
-│   └── results/                    # cv_results.csv & comparison figure
+│   ├── models/                     # scale_params.rds, selected_models.rds (from CV)
+│   └── results/                    # cv_results.csv, selected_models.csv, model_comparison.png; test_predictions.csv, test_predictions_labels.txt, test_metrics.csv (after predict)
 ├── analyze_distributions.R         # Per-variable distributions → outputs/eda
 ├── Makefile
 ├── PROJECT_PLAN.md
@@ -110,6 +110,20 @@ wine-quality-prediction/
 | **RMSE** | Root mean squared error on the 3–9 quality scale |
 
 Metrics are reported for **5-fold stratified cross-validation** (mean ± SD across folds). Preprocessing parameters for applying the same scaling to `test.csv` are saved as `outputs/models/scale_params.rds` at the end of `scripts/02_cv.R`.
+
+### CV selection for test prediction
+
+After CV, **`scripts/02_cv.R`** picks two models from **`mean_cv_accuracy`** (tie-break: lower **`mean_cv_rmse`**), saves **`outputs/models/selected_models.rds`** and **`outputs/results/selected_models.csv`**:
+
+1. **Best overall** — best among all models.
+2. **Best non–Random Forest** — best among models whose name does not start with `Random Forest` (tree ensembles excluded from this slot).
+
+**`make predict`** (or `Rscript scripts/05_predict_test.R`) requires **`selected_models.rds`** from a prior **`make cv`**. It refits only those two models and writes:
+
+- **`outputs/results/test_predictions.csv`** — columns `row`, **`Best Performance Model`**, **`Best Performance Model We Have Learned`** (integer predictions).
+- **`outputs/results/test_predictions_labels.txt`** — human-readable model names and CV metrics for the two picks.
+
+If `data/processed/test.csv` includes **`quality`**, **`outputs/results/test_metrics.csv`** contains **two rows** (accuracy and RMSE for those models only).
 
 ## Citation
 

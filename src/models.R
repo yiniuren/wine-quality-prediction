@@ -234,3 +234,12 @@ STRATIFIED_MODEL_REGISTRY <- lapply(BASE_MODEL_REGISTRY, function(m) {
 })
 
 MODEL_REGISTRY <- c(BASE_MODEL_REGISTRY, STRATIFIED_MODEL_REGISTRY)
+
+get_model_from_registry <- function(name) {
+  for (m in MODEL_REGISTRY) {
+    if (identical(m$name, name)) {
+      return(m)
+    }
+  }
+  stop("Unknown model in registry: ", name)
+}

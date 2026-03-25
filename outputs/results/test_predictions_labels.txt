@@ -1,0 +1,5 @@
+Best Performance Model: Random Forest (clf)
+Best Performance Model We Have Learned: Ridge Logistic (by wine type)
+
+(CV) Best overall — accuracy=0.667369, RMSE=0.670384
+(CV) Best non-Random Forest — accuracy=0.539625, RMSE=0.784294

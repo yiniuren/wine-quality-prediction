@@ -77,3 +77,17 @@ compute_accuracy <- function(actual, predicted) {
 compute_rmse <- function(actual, predicted) {
   sqrt(mean((actual - predicted)^2))
 }
+
+# Tree ensembles excluded when picking "models we have learned" (non-RF best).
+is_random_forest_model <- function(name) {
+  grepl("^Random Forest", name)
+}
+
+# One row from cv_results: max mean_cv_accuracy, tie-break lower mean_cv_rmse, then model name.
+pick_best_by_cv_accuracy <- function(cv_df) {
+  if (nrow(cv_df) == 0) {
+    stop("pick_best_by_cv_accuracy: empty data frame")
+  }
+  ord <- order(-cv_df$mean_cv_accuracy, cv_df$mean_cv_rmse, cv_df$model)
+  cv_df[ord[1], , drop = FALSE]
+}

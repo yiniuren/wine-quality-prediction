@@ -1,0 +1,3 @@
+"role","model","mean_cv_accuracy","mean_cv_rmse"
+"best_overall","Random Forest (clf)",0.667369018528461,0.670384168732089
+"best_non_tree","Ridge Logistic (by wine type)",0.539624882913059,0.784293722042383

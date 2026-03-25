@@ -1,0 +1,3 @@
+"model","accuracy","rmse"
+"Random Forest (clf)",0.700538876058507,0.640558839924715
+"Ridge Logistic (by wine type)",0.572748267898383,0.740866895424509
