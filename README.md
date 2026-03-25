@@ -2,7 +2,10 @@
 
 Predict wine quality (score 3–9) from physicochemical properties using a
 suite of classification and regression models, then compare their accuracy
-and RMSE side by side.
+and RMSE side by side. Models whose names end with **`(by wine type)`** fit
+one submodel on red wines only and one on white wines only (no `is_red`
+feature inside each subfit); predictions use the submodel that matches each
+row’s `is_red`.
 
 ## Dataset
 

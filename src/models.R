@@ -239,22 +239,68 @@ train_and_predict_xgb_reg <- function(X_train, y_train, X_test) {
 }
 
 # ---------------------------------------------------------------------------
-# MODEL_REGISTRY — name, function, regressor flag
+# Separate red / white submodels (no is_red column in each subfit)
 # ---------------------------------------------------------------------------
-MODEL_REGISTRY <- list(
-  list(name = "OLS",                fn = train_and_predict_ols,            is_reg = TRUE),
-  list(name = "Multinomial Logistic", fn = train_and_predict_multinom,     is_reg = FALSE),
-  list(name = "Ridge Logistic",     fn = train_and_predict_ridge_logistic, is_reg = FALSE),
-  list(name = "Lasso Logistic",     fn = train_and_predict_lasso_logistic, is_reg = FALSE),
-  list(name = "Elastic Net Logistic", fn = train_and_predict_enet_logistic, is_reg = FALSE),
-  list(name = "KNN",                fn = train_and_predict_knn,            is_reg = FALSE),
-  list(name = "Random Forest (clf)", fn = train_and_predict_rf_class,      is_reg = FALSE),
-  list(name = "XGBoost (clf)",      fn = train_and_predict_xgb_class,      is_reg = FALSE),
-  list(name = "CatBoost (clf)",     fn = train_and_predict_catboost_class,  is_reg = FALSE),
-  list(name = "Naive Bayes",        fn = train_and_predict_naive_bayes,    is_reg = FALSE),
-  list(name = "Ordinal Logistic",   fn = train_and_predict_ordinal,        is_reg = FALSE),
-  list(name = "Ridge Regression",   fn = train_and_predict_ridge_reg,      is_reg = TRUE),
-  list(name = "Lasso Regression",   fn = train_and_predict_lasso_reg,      is_reg = TRUE),
-  list(name = "Random Forest (reg)", fn = train_and_predict_rf_reg,        is_reg = TRUE),
-  list(name = "XGBoost (reg)",      fn = train_and_predict_xgb_reg,        is_reg = TRUE)
+strip_stratified_features <- function(X) {
+  if (!"is_red" %in% colnames(X)) {
+    return(X)
+  }
+  X[, setdiff(colnames(X), "is_red"), drop = FALSE]
+}
+
+wrap_stratified_by_wine_type <- function(base_fn) {
+  function(X_train, y_train, X_test) {
+    if (!"is_red" %in% colnames(X_train) || !"is_red" %in% colnames(X_test)) {
+      stop("is_red column required for stratified-by-wine-type models")
+    }
+    red   <- which(X_train$is_red == 1)
+    white <- which(X_train$is_red == 0)
+    if (length(red) == 0L || length(white) == 0L) {
+      return(base_fn(X_train, y_train, X_test))
+    }
+    Xtr_s <- strip_stratified_features(X_train)
+    Xte_s <- strip_stratified_features(X_test)
+    out_r <- base_fn(Xtr_s[red, , drop = FALSE], y_train[red], Xte_s)
+    out_w <- base_fn(Xtr_s[white, , drop = FALSE], y_train[white], Xte_s)
+    if (is.null(out_r) || is.null(out_w)) {
+      return(NULL)
+    }
+    ir_te <- X_test$is_red == 1
+    preds <- ifelse(ir_te, out_r$predictions, out_w$predictions)
+    list(
+      predictions = preds,
+      model = list(red = out_r$model, white = out_w$model)
+    )
+  }
+}
+
+# ---------------------------------------------------------------------------
+# MODEL_REGISTRY — 15 global + 15 by wine type
+# ---------------------------------------------------------------------------
+BASE_MODEL_REGISTRY <- list(
+  list(name = "OLS",                  fn = train_and_predict_ols,             is_reg = TRUE),
+  list(name = "Multinomial Logistic", fn = train_and_predict_multinom,       is_reg = FALSE),
+  list(name = "Ridge Logistic",       fn = train_and_predict_ridge_logistic,  is_reg = FALSE),
+  list(name = "Lasso Logistic",       fn = train_and_predict_lasso_logistic,  is_reg = FALSE),
+  list(name = "Elastic Net Logistic", fn = train_and_predict_enet_logistic,   is_reg = FALSE),
+  list(name = "KNN",                  fn = train_and_predict_knn,             is_reg = FALSE),
+  list(name = "Random Forest (clf)",  fn = train_and_predict_rf_class,        is_reg = FALSE),
+  list(name = "XGBoost (clf)",        fn = train_and_predict_xgb_class,        is_reg = FALSE),
+  list(name = "CatBoost (clf)",       fn = train_and_predict_catboost_class,  is_reg = FALSE),
+  list(name = "Naive Bayes",          fn = train_and_predict_naive_bayes,      is_reg = FALSE),
+  list(name = "Ordinal Logistic",     fn = train_and_predict_ordinal,          is_reg = FALSE),
+  list(name = "Ridge Regression",     fn = train_and_predict_ridge_reg,        is_reg = TRUE),
+  list(name = "Lasso Regression",     fn = train_and_predict_lasso_reg,        is_reg = TRUE),
+  list(name = "Random Forest (reg)",  fn = train_and_predict_rf_reg,           is_reg = TRUE),
+  list(name = "XGBoost (reg)",        fn = train_and_predict_xgb_reg,         is_reg = TRUE)
 )
+
+STRATIFIED_MODEL_REGISTRY <- lapply(BASE_MODEL_REGISTRY, function(m) {
+  list(
+    name   = paste0(m$name, " (by wine type)"),
+    fn     = wrap_stratified_by_wine_type(m$fn),
+    is_reg = m$is_reg
+  )
+})
+
+MODEL_REGISTRY <- c(BASE_MODEL_REGISTRY, STRATIFIED_MODEL_REGISTRY)
