@@ -1,21 +1,33 @@
+RSCRIPT := Rscript
+INSTALL_PACKAGES := $(RSCRIPT) src/install_packages.R
+
 .PHONY: deps eda cv plots predict all clean
 
 deps:
-	Rscript src/install_packages.R
+	$(INSTALL_PACKAGES)
 
 eda:
-	Rscript scripts/01_eda.R
+	$(INSTALL_PACKAGES)
+	$(RSCRIPT) scripts/01_eda.R
 
 cv:
-	Rscript scripts/02_cv.R
+	$(INSTALL_PACKAGES)
+	$(RSCRIPT) scripts/02_cv.R
 
 plots:
-	Rscript scripts/04_plots.R
+	$(INSTALL_PACKAGES)
+	$(RSCRIPT) scripts/04_plots.R
 
 predict:
-	Rscript scripts/05_predict_test.R
+	$(INSTALL_PACKAGES)
+	$(RSCRIPT) scripts/05_predict_test.R
 
-all: eda cv plots
+# Single install check, then EDA → CV → plots (same as separate makes, without repeating install)
+all:
+	$(INSTALL_PACKAGES)
+	$(RSCRIPT) scripts/01_eda.R
+	$(RSCRIPT) scripts/02_cv.R
+	$(RSCRIPT) scripts/04_plots.R
 
 clean:
 	rm -f outputs/results/*.csv outputs/results/*.png
