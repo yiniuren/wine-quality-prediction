@@ -9,7 +9,72 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 train <- read.csv(input_path, sep = ";", check.names = FALSE)
 
-# ---- 1. Correlation heatmap ------------------------------------------------
+eda_theme <- function() {
+  theme_minimal(base_size = 11) +
+    theme(plot.title = element_text(hjust = 0.5))
+}
+
+# ---- 1. Quality distribution table + bar; per-variable marginals -----------
+
+quality_counts <- as.data.frame(table(train$quality))
+colnames(quality_counts) <- c("quality", "count")
+quality_counts <- quality_counts[order(as.numeric(as.character(quality_counts$quality))), ]
+quality_counts$proportion <- quality_counts$count / sum(quality_counts$count)
+
+write.csv(quality_counts, file.path(output_dir, "quality_distribution.csv"), row.names = FALSE)
+
+cat("Distribution of y-variable `quality`:\n")
+print(quality_counts)
+
+quality_plot <- ggplot(train, aes(x = factor(quality))) +
+  geom_bar(fill = "steelblue", color = "black") +
+  labs(
+    title = "Distribution of quality",
+    x = "quality",
+    y = "Count"
+  ) +
+  eda_theme()
+
+ggsave(
+  filename = file.path(output_dir, "quality_distribution_bar.png"),
+  plot = quality_plot,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+for (col in colnames(train)) {
+  if (col == "quality") {
+    next
+  }
+
+  plot_path <- file.path(output_dir, paste0(gsub("[^A-Za-z0-9_]+", "_", col), "_distribution.png"))
+  values <- train[[col]]
+
+  if (col == "is_red" || !is.numeric(values)) {
+    p <- ggplot(train, aes(x = factor(.data[[col]]))) +
+      geom_bar(fill = "steelblue", color = "black") +
+      labs(
+        title = paste("Distribution of", col),
+        x = col,
+        y = "Count"
+      ) +
+      eda_theme()
+  } else {
+    p <- ggplot(train, aes(x = .data[[col]])) +
+      geom_density(fill = "steelblue", alpha = 0.35, color = "black", linewidth = 0.4) +
+      labs(
+        title = paste("Distribution of", col),
+        x = col,
+        y = "Density"
+      ) +
+      eda_theme()
+  }
+
+  ggsave(filename = plot_path, plot = p, width = 8, height = 5, dpi = 300)
+}
+
+# ---- 2. Correlation heatmap ------------------------------------------------
 
 cor_mat  <- cor(train, use = "complete.obs")
 cor_long <- melt(cor_mat, varnames = c("Var1", "Var2"), value.name = "corr")
@@ -28,7 +93,7 @@ ggsave(file.path(output_dir, "correlation_heatmap.png"),
        p_corr, width = 10, height = 8, dpi = 300)
 cat("Saved correlation_heatmap.png\n")
 
-# ---- 2. Boxplots of each feature grouped by quality ------------------------
+# ---- 3. Boxplots of each feature grouped by quality ------------------------
 
 feature_cols <- setdiff(colnames(train), c("quality", "is_red"))
 long_box <- melt(train[, c(feature_cols, "quality")],
@@ -48,7 +113,7 @@ ggsave(file.path(output_dir, "boxplots_by_quality.png"),
        p_box, width = 12, height = 10, dpi = 300)
 cat("Saved boxplots_by_quality.png\n")
 
-# ---- 3. Red vs. white — all predictors (overlaid densities) ----------------
+# ---- 4. Red vs. white — all predictors (overlaid densities) ----------------
 
 features_all <- setdiff(colnames(train), c("quality", "is_red"))
 long_rw_all <- melt(train[, c(features_all, "is_red"), drop = FALSE],
@@ -70,7 +135,7 @@ ggsave(file.path(output_dir, "red_vs_white_all_features.png"),
        p_rw_all, width = 14, height = 13, dpi = 300)
 cat("Saved red_vs_white_all_features.png\n")
 
-# ---- 4. Red vs. white — quality (proportional bars, semi-transparent) -----
+# ---- 5. Red vs. white — quality (proportional bars, semi-transparent) -----
 
 quality_levels <- sort(unique(train$quality))
 prop_rows <- list()
@@ -105,7 +170,7 @@ ggsave(file.path(output_dir, "red_vs_white_quality.png"),
        p_q_rw, width = 9, height = 5, dpi = 300)
 cat("Saved red_vs_white_quality.png\n")
 
-# ---- 5. Chlorides: raw vs. log1p comparison --------------------------------
+# ---- 6. Chlorides: raw vs. log1p comparison --------------------------------
 
 comp <- data.frame(
   Raw      = train$chlorides,

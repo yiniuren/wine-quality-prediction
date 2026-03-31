@@ -4,7 +4,6 @@ deps:
 	Rscript src/install_packages.R
 
 eda:
-	Rscript analyze_distributions.R
 	Rscript scripts/01_eda.R
 
 cv:

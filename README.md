@@ -66,7 +66,6 @@ make clean        # remove generated results and saved preprocessing
 Each step can also be invoked directly:
 
 ```bash
-Rscript analyze_distributions.R
 Rscript scripts/01_eda.R
 Rscript scripts/02_cv.R
 Rscript scripts/04_plots.R
@@ -87,7 +86,7 @@ wine-quality-prediction/
 │   ├── helpers.R                   # Shared utilities (preprocess, metrics)
 │   └── models.R                    # All model train/predict functions
 ├── scripts/
-│   ├── 01_eda.R                    # Exploratory data analysis
+│   ├── 01_eda.R                    # EDA: marginals, heatmap, boxplots, red vs white, etc.
 │   ├── 02_cv.R                     # Cross-validation runner
 │   ├── 04_plots.R                  # Comparison figures (CV only)
 │   └── 05_predict_test.R           # Test set prediction
@@ -95,7 +94,6 @@ wine-quality-prediction/
 │   ├── eda/                        # All EDA & distribution plots
 │   ├── models/                     # scale_params.rds, selected_models.rds (from CV)
 │   └── results/                    # cv_results.csv, selected_models.csv, model_comparison.png; test_predictions.csv, test_predictions_labels.txt, test_metrics.csv (after predict)
-├── analyze_distributions.R         # Per-variable distributions → outputs/eda
 ├── Makefile
 ├── PROJECT_PLAN.md
 ├── AI_USAGE.md
